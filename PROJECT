@@ -1,0 +1,6 @@
+domain: sde.domain
+layout:
+- go.kubebuilder.io/v3
+projectName: sde-control
+repo: sde.domain/sdeController
+version: "3"
