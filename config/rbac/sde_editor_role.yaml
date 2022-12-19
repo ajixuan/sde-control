@@ -1,0 +1,31 @@
+# permissions for end users to edit sdes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: sde-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: sde-control
+    app.kubernetes.io/part-of: sde-control
+    app.kubernetes.io/managed-by: kustomize
+  name: sde-editor-role
+rules:
+- apiGroups:
+  - sde.sde.domain
+  resources:
+  - sdes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sde.sde.domain
+  resources:
+  - sdes/status
+  verbs:
+  - get

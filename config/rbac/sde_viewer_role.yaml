@@ -1,0 +1,27 @@
+# permissions for end users to view sdes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: sde-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: sde-control
+    app.kubernetes.io/part-of: sde-control
+    app.kubernetes.io/managed-by: kustomize
+  name: sde-viewer-role
+rules:
+- apiGroups:
+  - sde.sde.domain
+  resources:
+  - sdes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sde.sde.domain
+  resources:
+  - sdes/status
+  verbs:
+  - get
