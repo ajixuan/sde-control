@@ -18,8 +18,18 @@ package controllers
 
 import (
 	"context"
+	_ "embed"
+	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -32,6 +42,9 @@ type SdeReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
+
+//go:embed embeds/db_cleanup.sh
+var dbCleanup string
 
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes/status,verbs=get;update;patch
@@ -47,10 +60,116 @@ type SdeReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.1/pkg/reconcile
 func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	ctxlog := log.FromContext(ctx)
+	sde := &sdev1beta1.Sde{}
+	r.Get(ctx, req.NamespacedName, sde)
 
+	// STEP 2: create the ConfigMap with the script's content.
+	configmap := &corev1.ConfigMap{}
+	err := r.Get(ctx, types.NamespacedName{Name: "run-scripts", Namespace: sde.Namespace}, configmap)
+	if err != nil && errors.IsNotFound(err) {
+
+		ctxlog.Info("Creating new ConfigMap")
+		configmap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "run-scripts",
+				Namespace: sde.Namespace,
+			},
+			Data: map[string]string{
+				"db_cleanup.sh": dbCleanup,
+			},
+		}
+
+		err = ctrl.SetControllerReference(sde, configmap, r.Scheme)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		err = r.Create(ctx, configmap)
+		if err != nil {
+			ctxlog.Error(err, "Failed to create ConfigMap")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+
+	}
+
+	// STEP 3: create the Job with the ConfigMap attached as a volume.
+	job := &batchv1.Job{}
+	err = r.Get(ctx, types.NamespacedName{Name: "sde-controller-job", Namespace: sde.Namespace}, job)
+	if err != nil && errors.IsNotFound(err) {
+
+		ctxlog.Info("Creating new Job")
+		configmapMode := int32(0554)
+		job := &batchv1.Job{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "sde-controller-job",
+				Namespace: sde.Namespace,
+			},
+			Spec: batchv1.JobSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						RestartPolicy: corev1.RestartPolicyNever,
+						// STEP 3a: define the ConfigMap as a volume.
+						Volumes: []corev1.Volume{{
+							Name: "task-script-volume",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "run-scripts",
+									},
+									DefaultMode: &configmapMode,
+								},
+							},
+						}},
+						Containers: []corev1.Container{
+							{
+								Name:  "task",
+								Image: "busybox",
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    *resource.NewMilliQuantity(int64(50), resource.DecimalSI),
+										corev1.ResourceMemory: *resource.NewScaledQuantity(int64(250), resource.Mega),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    *resource.NewMilliQuantity(int64(100), resource.DecimalSI),
+										corev1.ResourceMemory: *resource.NewScaledQuantity(int64(500), resource.Mega),
+									},
+								},
+								// STEP 3b: mount the ConfigMap volume.
+								VolumeMounts: []corev1.VolumeMount{{
+									Name:      "task-script-volume",
+									MountPath: "/scripts",
+									ReadOnly:  true,
+								}},
+								// STEP 3c: run the volume-mounted script.
+								Command: []string{"/scripts/db_cleanup.sh"},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		err = ctrl.SetControllerReference(sde, job, r.Scheme)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		err = r.Create(ctx, job)
+		if err != nil {
+			ctxlog.Error(err, "Failed to create Job")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Requeue if the job is not complete.
+	if *job.Spec.Completions == 0 {
+		ctxlog.Info("Requeuing to wait for Job to complete")
+		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
+	}
+
+	ctxlog.Info("All done")
 	return ctrl.Result{}, nil
 }
 

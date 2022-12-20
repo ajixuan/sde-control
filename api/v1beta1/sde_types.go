@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,17 +29,15 @@ import (
 type SdeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Sde. Edit sde_types.go to remove/update
-	Name string `json:"foo,omitempty"`
+	DatabaseCount    int64             `json:"databaseCount"`
+	DatabaseCapacity resource.Quantity `json:"databaseCapacity"`
 }
 
 // SdeStatus defines the observed state of Sde
 type SdeStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	CurrentVersion string `json:"currentVersion,omitempty"`
-	UpdateVersion  string `json:"updateVersion,omitempty"`
+	Active []corev1.ObjectReference `json:"active,omitempty"`
 }
 
 //+kubebuilder:object:root=true
