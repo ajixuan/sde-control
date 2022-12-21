@@ -99,14 +99,6 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	err = r.Get(ctx, types.NamespacedName{Name: "sde-controller-job", Namespace: sde.Namespace}, job)
 	if err != nil && errors.IsNotFound(err) {
 
-		// Get DB secret
-		dbSecret := &corev1.Secret{}
-		err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-database-secrets", sde.Namespace), Namespace: sde.Namespace}, dbSecret)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		ctxlog.Info(fmt.Sprintf("so wow %s", string(dbSecret.Data["ADMIN_DATABASE_PASSWORD"])))
-
 		ctxlog.Info("Creating new Job")
 		configmapMode := int32(0554)
 
@@ -120,17 +112,27 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 					Spec: corev1.PodSpec{
 						RestartPolicy: corev1.RestartPolicyOnFailure,
 						// STEP 3a: define the ConfigMap as a volume.
-						Volumes: []corev1.Volume{{
-							Name: "task-script-volume",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "run-scripts",
+						Volumes: []corev1.Volume{
+							{
+								Name: "task-script-volume",
+								VolumeSource: corev1.VolumeSource{
+									ConfigMap: &corev1.ConfigMapVolumeSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "run-scripts",
+										},
+										DefaultMode: &configmapMode,
 									},
-									DefaultMode: &configmapMode,
 								},
 							},
-						}},
+							{
+								Name: "db-secret-volume",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: fmt.Sprintf("%s-database-secrets", sde.Namespace),
+									},
+								},
+							},
+						},
 						Containers: []corev1.Container{
 							{
 								Name:  "task",
@@ -146,13 +148,21 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 									},
 								},
 								// STEP 3b: mount the ConfigMap volume.
-								VolumeMounts: []corev1.VolumeMount{{
-									Name:      "task-script-volume",
-									MountPath: "/scripts",
-									ReadOnly:  true,
-								}},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      "task-script-volume",
+										MountPath: "/scripts",
+										ReadOnly:  true,
+									},
+									{
+										Name:      "db-secret-volume",
+										MountPath: "/secrets",
+										ReadOnly:  true,
+									},
+								},
 								// STEP 3c: run the volume-mounted script.
-								Command: []string{"/scripts/db_backup.sh"},
+								Command: []string{"/scripts/db_backup.sh", "/secrets/ADMIN_DATABASE_PASSWORD"},
+								// Command: []string{"sleep", "1231273"},
 							},
 						},
 					},
