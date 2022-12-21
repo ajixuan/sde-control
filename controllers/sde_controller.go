@@ -102,6 +102,8 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		ctxlog.Info("Creating new Job")
 		configmapMode := int32(0554)
 
+		databaseHost := fmt.Sprintf("%s-database-service", sde.Namespace)
+
 		job := &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sde-controller-job",
@@ -136,7 +138,7 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 						Containers: []corev1.Container{
 							{
 								Name:  "task",
-								Image: "busybox",
+								Image: "postgres:12",
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceCPU:    *resource.NewMilliQuantity(int64(50), resource.DecimalSI),
@@ -161,7 +163,7 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 									},
 								},
 								// STEP 3c: run the volume-mounted script.
-								Command: []string{"/scripts/db_backup.sh", "/secrets/ADMIN_DATABASE_PASSWORD"},
+								Command: []string{"/scripts/db_cleanup.sh", "postgres", "/secrets/ADMIN_DATABASE_PASSWORD", databaseHost, "sde_", "1"},
 								// Command: []string{"sleep", "1231273"},
 							},
 						},
