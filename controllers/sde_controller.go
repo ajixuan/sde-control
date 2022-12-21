@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -43,10 +44,6 @@ type SdeReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-func CreateConfigmap() {
-
-}
-
 //go:embed embeds/db_cleanup.sh
 var dbCleanup string
 
@@ -56,10 +53,6 @@ var dbCleanup string
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Sde object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.1/pkg/reconcile
@@ -99,7 +92,6 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
-
 	}
 
 	// STEP 3: create the Job with the ConfigMap attached as a volume.
@@ -107,8 +99,17 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	err = r.Get(ctx, types.NamespacedName{Name: "sde-controller-job", Namespace: sde.Namespace}, job)
 	if err != nil && errors.IsNotFound(err) {
 
+		// Get DB secret
+		dbSecret := &corev1.Secret{}
+		err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-database-secrets", sde.Namespace), Namespace: sde.Namespace}, dbSecret)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		ctxlog.Info(fmt.Sprintf("so wow %s", string(dbSecret.Data["ADMIN_DATABASE_PASSWORD"])))
+
 		ctxlog.Info("Creating new Job")
 		configmapMode := int32(0554)
+
 		job := &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "sde-controller-job",
@@ -151,7 +152,7 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 									ReadOnly:  true,
 								}},
 								// STEP 3c: run the volume-mounted script.
-								Command: []string{"/scripts/db_cleanup.sh"},
+								Command: []string{"/scripts/db_backup.sh"},
 							},
 						},
 					},
