@@ -43,6 +43,10 @@ type SdeReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+func CreateConfigmap() {
+
+}
+
 //go:embed embeds/db_cleanup.sh
 var dbCleanup string
 
@@ -63,13 +67,17 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	ctxlog := log.FromContext(ctx)
 	sde := &sdev1beta1.Sde{}
-	r.Get(ctx, req.NamespacedName, sde)
+	err := r.Get(ctx, req.NamespacedName, sde)
+	if err != nil {
+		ctxlog.Error(err, "Operator not found")
+		return ctrl.Result{}, err
+	}
 
 	// STEP 2: create the ConfigMap with the script's content.
 	configmap := &corev1.ConfigMap{}
-	err := r.Get(ctx, types.NamespacedName{Name: "run-scripts", Namespace: sde.Namespace}, configmap)
+	err = r.Get(ctx, types.NamespacedName{Name: "run-scripts", Namespace: sde.Namespace}, configmap)
 	if err != nil && errors.IsNotFound(err) {
-
+		ctxlog.Error(err, "reason why not found")
 		ctxlog.Info("Creating new ConfigMap")
 		configmap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -109,7 +117,7 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			Spec: batchv1.JobSpec{
 				Template: corev1.PodTemplateSpec{
 					Spec: corev1.PodSpec{
-						RestartPolicy: corev1.RestartPolicyNever,
+						RestartPolicy: corev1.RestartPolicyOnFailure,
 						// STEP 3a: define the ConfigMap as a volume.
 						Volumes: []corev1.Volume{{
 							Name: "task-script-volume",
