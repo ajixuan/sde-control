@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: sde-control-system
+namespace: test-607e24-blamdz
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	_ "github.com/lib/pq"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,6 +14,8 @@ import (
 )
 
 type sslMode bool
+
+var ctxlog logr.Logger
 
 func (s sslMode) String() string {
 	switch s {
@@ -36,7 +39,6 @@ type PGConnector struct {
 func (p *PGConnector) Connect() (*sql.DB, error) {
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		p.Host, p.Port, p.User, p.Password, p.Dbname, p.Sslmode.String())
-
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		return nil, err
@@ -44,6 +46,7 @@ func (p *PGConnector) Connect() (*sql.DB, error) {
 
 	err = db.Ping()
 	if err != nil {
+		ctxlog.Info("Failed to connect to DB")
 		return nil, err
 	}
 
@@ -51,7 +54,8 @@ func (p *PGConnector) Connect() (*sql.DB, error) {
 }
 
 func (r *SdeReconciler) PGCleanup(ctx context.Context, sde *sdev1beta1.Sde) error {
-	ctxlog := log.FromContext(ctx)
+	ctxlog = log.FromContext(ctx)
+	ctxlog.Info("Running pg cleanup")
 
 	// Get connection strings
 	dbSecret := &corev1.Secret{}

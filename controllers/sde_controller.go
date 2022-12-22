@@ -57,7 +57,11 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// On update event
-	r.PGCleanup(ctx, sde)
+	err = r.PGCleanup(ctx, sde)
+	if err != nil {
+		ctxlog.Error(err, "PG Cleanup failed")
+		return ctrl.Result{}, err
+	}
 
 	ctxlog.Info("All done")
 	return ctrl.Result{}, nil
