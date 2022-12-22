@@ -56,12 +56,12 @@ func (r *SdeReconciler) PGCleanup(ctx context.Context, sde *sdev1beta1.Sde) erro
 	// Get connection strings
 	dbSecret := &corev1.Secret{}
 	configMap := &corev1.ConfigMap{}
-	err := r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-db-configmap"), Namespace: sde.Namespace}, configMap)
+	err := r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-db-configmap", sde.Namespace), Namespace: sde.Namespace}, configMap)
 	if err != nil {
 		return err
 	}
 
-	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-database-secrets"), Namespace: sde.Namespace}, dbSecret)
+	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-database-secrets", sde.Namespace), Namespace: sde.Namespace}, dbSecret)
 	if err != nil {
 		return err
 	}
