@@ -9,4 +9,4 @@ metadata:
     app.kubernetes.io/created-by: sde-control
   name: sde-sample
 spec:
-  # TODO(user): Add fields here
+  databaseCount: 2

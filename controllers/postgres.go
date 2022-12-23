@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/go-logr/logr"
 	_ "github.com/lib/pq"
@@ -53,9 +55,29 @@ func (p *PGConnector) Connect() (*sql.DB, error) {
 	return db, nil
 }
 
-func (r *SdeReconciler) PGCleanup(ctx context.Context, sde *sdev1beta1.Sde) error {
+func cleanupDB(db *sql.DB, dbList []string, count int) error {
+	var query strings.Builder
+
+	query.WriteString("DROP DATABASE ")
+
+	for i := 0; i < count; i++ {
+		query.WriteString(dbList[i])
+		query.WriteString(" ")
+	}
+
+	query.WriteString(";")
+
+	_, err := db.Exec(query.String())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *SdeReconciler) reconcileDb(ctx context.Context, sde *sdev1beta1.Sde) error {
 	ctxlog = log.FromContext(ctx)
-	ctxlog.Info("Running pg cleanup")
+	ctxlog.Info("Reconciling Database...")
 
 	// Get connection strings
 	dbSecret := &corev1.Secret{}
@@ -87,7 +109,7 @@ func (r *SdeReconciler) PGCleanup(ctx context.Context, sde *sdev1beta1.Sde) erro
 
 	// Query list of databases
 	dbList := make([]string, 0)
-	rows, err := db.Query(`SELECT datname FROM pg_database;`)
+	rows, err := db.Query(`SELECT datname FROM pg_database WHERE datname LIKE '^sde_[0-9]+\.[0-9]+\.[0-9]+.*$';`)
 	if err != nil {
 		return err
 	}
@@ -100,6 +122,16 @@ func (r *SdeReconciler) PGCleanup(ctx context.Context, sde *sdev1beta1.Sde) erro
 		dbList = append(dbList, dbName)
 	}
 
-	ctxlog.Info(fmt.Sprintf("yo sick %v", dbList))
+	sort.Strings(dbList)
+	ctxlog.Info(fmt.Sprintf("Current DBs: %v", dbList))
+
+	count := len(dbList) - int(sde.Spec.DatabaseCount)
+	if count > 0 {
+		err = cleanupDB(db, dbList, count)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

@@ -41,6 +41,7 @@ var dbCleanup string
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -56,9 +57,8 @@ func (r *SdeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// On update event
-	err = r.PGCleanup(ctx, sde)
-	if err != nil {
+	// Reconcile DB
+	if err = r.reconcileDb(ctx, sde); err != nil {
 		ctxlog.Error(err, "PG Cleanup failed")
 		return ctrl.Result{}, err
 	}

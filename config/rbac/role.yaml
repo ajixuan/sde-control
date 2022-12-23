@@ -6,6 +6,13 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+- apiGroups:
   - sde.sde.domain
   resources:
   - sdes
