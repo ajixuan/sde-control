@@ -7,7 +7,10 @@ import (
 	"sort"
 	"strings"
 
+	"regexp"
+
 	"github.com/go-logr/logr"
+	ver "github.com/hashicorp/go-version"
 	_ "github.com/lib/pq"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,16 +18,41 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type sslMode bool
-
 var ctxlog logr.Logger
+var re = regexp.MustCompile(`^(\d+\.)?(\d+\.)?(\*|\d+)$`)
+
+type DbVersions []string
+
+func (s DbVersions) Len() int {
+	return len(s)
+}
+
+func (s DbVersions) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s DbVersions) Less(i, j int) bool {
+	v1, err := ver.NewVersion(re.FindStringSubmatch(s[i])[0])
+	if err != nil {
+		v1, _ = ver.NewVersion("0")
+	}
+
+	v2, err := ver.NewVersion(re.FindStringSubmatch(s[j])[0])
+	if err != nil {
+		v2, _ = ver.NewVersion("0")
+	}
+
+	return v1.LessThan(v2)
+}
+
+type sslMode bool
 
 func (s sslMode) String() string {
 	switch s {
 	case true:
 		return "enabled"
 	case false:
-		return "disable	"
+		return "disable"
 	}
 	return "unknown"
 }
@@ -58,18 +86,18 @@ func (p *PGConnector) Connect() (*sql.DB, error) {
 func cleanupDB(db *sql.DB, dbList []string, count int) error {
 	var query strings.Builder
 
-	query.WriteString("DROP DATABASE ")
-
 	for i := 0; i < count; i++ {
+		query.WriteString("DROP DATABASE ")
+		query.WriteString("\"")
 		query.WriteString(dbList[i])
-		query.WriteString(" ")
-	}
+		query.WriteString("\" ;")
 
-	query.WriteString(";")
+		_, err := db.Exec(query.String())
+		if err != nil {
+			return err
+		}
 
-	_, err := db.Exec(query.String())
-	if err != nil {
-		return err
+		query.Reset()
 	}
 
 	return nil
@@ -116,13 +144,13 @@ func (r *SdeReconciler) reconcileDb(ctx context.Context, sde *sdev1beta1.Sde) er
 
 	var dbName string
 	for rows.Next() {
-		if err := rows.Scan(dbName); err != nil {
+		if err := rows.Scan(&dbName); err != nil {
 			return err
 		}
 		dbList = append(dbList, dbName)
 	}
 
-	sort.Strings(dbList)
+	sort.Sort(DbVersions(dbList))
 	ctxlog.Info(fmt.Sprintf("Current DBs: %v", dbList))
 
 	count := len(dbList) - int(sde.Spec.DatabaseCount)

@@ -9,4 +9,5 @@ metadata:
     app.kubernetes.io/created-by: sde-control
   name: sde-sample
 spec:
+  # sample count number
   databaseCount: 2

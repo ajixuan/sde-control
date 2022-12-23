@@ -18,10 +18,12 @@ package controllers
 
 import (
 	"path/filepath"
+	"sort"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -78,3 +80,10 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func TestSemver(t *testing.T) {
+	dbList := []string{"2022.1.1", "5.2.1"}
+	sort.Sort(DbVersions(dbList))
+
+	assert.Equal(t, "5.2.1", dbList[0])
+}
