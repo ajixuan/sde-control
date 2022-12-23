@@ -19,8 +19,28 @@ https://developer.ibm.com/learningpaths/why-when-kubernetes-operators/summary/
 https://github.com/cloudnative-pg/cloudnative-pg/blob/main/docs/src/bootstrap.md
 
 # Operations
-Steps to Initialize:
+### Steps to Initialize a Kubebuilder project (incomplete):
 ```
 kubebuilder init --domain sde.domain --repo sde.domain/sdeController
 kubebuilder create api --group sde-controller --version v1beta1 --kind SdeController
+```
+
+### Steps to deploy demo:
+1. Make sure your Kubeconfig is set to the right context and cluster
+1. Change the `namespace` attribute of `./config/default/kustomization.yaml` file to match your namespace
+1. Build and install the controller Custom Resource to your cluster:
+```
+make build
+make install
+```
+1. Build and Deploy the controller container:
+```
+export IMG=docker-dev.sdelements.com/dev_sde/sde-controller:0.0.1
+make docker-build
+make docker-push
+make docker-deploy
+```
+1. Deploy an instance of the SDE Custom resource:
+```
+kubectl apply -f config/samples/ --namespace <your namespace>
 ```
