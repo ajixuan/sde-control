@@ -41,8 +41,8 @@ var dbCleanup string
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sde.sde.domain,resources=sdes/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
