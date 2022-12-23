@@ -19,7 +19,7 @@ import (
 )
 
 var ctxlog logr.Logger
-var re = regexp.MustCompile(`(\d+\.)?(\d+\.)?(\*|\d+)`)
+var re = regexp.MustCompile(`\d+\.\d+\.\d+`)
 
 type DbVersions []string
 
@@ -32,14 +32,26 @@ func (s DbVersions) Swap(i, j int) {
 }
 
 func (s DbVersions) Less(i, j int) bool {
-	v1, err := ver.NewVersion(re.FindStringSubmatch(s[i])[0])
-	if err != nil {
-		v1, _ = ver.NewVersion("0")
+	var v1, v2 *ver.Version
+	rawv1 := re.FindStringSubmatch(s[i])
+	rawv2 := re.FindStringSubmatch(s[j])
+
+	if len(rawv1) == 0 {
+		return false
 	}
 
-	v2, err := ver.NewVersion(re.FindStringSubmatch(s[j])[0])
+	if len(rawv2) == 0 {
+		return true
+	}
+
+	v1, err := ver.NewVersion(rawv1[0])
 	if err != nil {
-		v2, _ = ver.NewVersion("0")
+		return false
+	}
+
+	v2, err = ver.NewVersion(rawv2[0])
+	if err != nil {
+		return true
 	}
 
 	return v1.LessThan(v2)
@@ -150,8 +162,9 @@ func (r *SdeReconciler) reconcileDb(ctx context.Context, sde *sdev1beta1.Sde) er
 		dbList = append(dbList, dbName)
 	}
 
-	sort.Sort(DbVersions(dbList))
 	ctxlog.Info(fmt.Sprintf("Current DBs: %v", dbList))
+	sort.Sort(DbVersions(dbList))
+	ctxlog.Info(fmt.Sprintf("Sorted DBs: %v", dbList))
 
 	count := len(dbList) - int(sde.Spec.DatabaseCount)
 	if count > 0 {
