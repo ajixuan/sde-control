@@ -24,7 +24,7 @@ func (s sslMode) String() string {
 	case true:
 		return "enabled"
 	case false:
-		return "disabled"
+		return "disable	"
 	}
 	return "unknown"
 }
@@ -109,7 +109,7 @@ func (r *SdeReconciler) reconcileDb(ctx context.Context, sde *sdev1beta1.Sde) er
 
 	// Query list of databases
 	dbList := make([]string, 0)
-	rows, err := db.Query(`SELECT datname FROM pg_database WHERE datname LIKE '^sde_[0-9]+\.[0-9]+\.[0-9]+.*$';`)
+	rows, err := db.Query(`SELECT datname FROM pg_database WHERE datname ~ '^sde_[0-9]+\.[0-9]+\.[0-9]+.*$';`)
 	if err != nil {
 		return err
 	}
