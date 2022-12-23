@@ -19,7 +19,7 @@ import (
 )
 
 var ctxlog logr.Logger
-var re = regexp.MustCompile(`^(\d+\.)?(\d+\.)?(\*|\d+)$`)
+var re = regexp.MustCompile(`(\d+\.)?(\d+\.)?(\*|\d+)`)
 
 type DbVersions []string
 

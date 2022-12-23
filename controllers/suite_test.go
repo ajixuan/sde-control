@@ -82,8 +82,8 @@ var _ = AfterSuite(func() {
 })
 
 func TestSemver(t *testing.T) {
-	dbList := []string{"2022.1.1", "5.2.1"}
+	dbList := []string{"sde_2022.1.1", "sde_5.2.1"}
 	sort.Sort(DbVersions(dbList))
 
-	assert.Equal(t, "5.2.1", dbList[0])
+	assert.Equal(t, "sde_5.2.1", dbList[0])
 }
